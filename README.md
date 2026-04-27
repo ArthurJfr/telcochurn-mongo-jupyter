@@ -173,6 +173,21 @@ Ordre recommandé d'exécution :
 - `04` = optimiser ce modèle
 - `05` = arbitrer et décider
 
+### Mini tableau ultra simple
+
+| Notebook | Input (ce que tu donnes) | Output (ce que tu récupères) | Décision à prendre |
+|---|---|---|---|
+| `01_telco_eda.ipynb` | Données brutes depuis Mongo (`app_db.tc`) | Qualité des données, types, valeurs manquantes, premières tendances churn | Les données sont-elles assez propres pour modéliser ? |
+| `02_telco_model_baseline.ipynb` | Données nettoyées + target `Churn Label` | Premier score de référence (baseline) | Le problème est-il prédictible avec un modèle simple ? |
+| `03_telco_random_forest.ipynb` | Même dataset + mêmes features que baseline | Performance RandomForest de base + confusion matrix | RandomForest fait-il mieux que la baseline ? |
+| `04_telco_random_forest_tuning.ipynb` | RandomForest + grille d'hyperparamètres | Meilleurs paramètres + score tuned | Le tuning vaut-il le coût en temps ? |
+| `05_telco_model_comparison.ipynb` | Résultats harmonisés de plusieurs modèles | Tableau comparatif final (`roc_auc`, `recall`, `precision`, etc.) | Quel modèle on retient pour la suite produit ? |
+
+Lecture "vulgarisée" :
+- **Input** = ce que tu mets dans la machine.
+- **Output** = ce que la machine te rend.
+- **Décision** = la question business à laquelle le notebook doit répondre.
+
 Temps d'exécution indicatif :
 
 - `01`, `02` et `03` : quelques secondes à ~1 minute
