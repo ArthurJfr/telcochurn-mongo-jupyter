@@ -1,17 +1,17 @@
 # mongo-local
 
-Environnement MongoDB local prêt à l'emploi avec Docker, interface web (`mongo-express`) et script d'import CSV.
+Environnement MongoDB local prêt à l'emploi avec Docker, interface web (`mongo-express`) et script d'import de datasets.
 
 ## Prérequis
 
 - Docker Desktop installé et démarré
-- Un fichier `.csv` avec une ligne d'en-tête
+- Un fichier dataset au format `.csv`, `.json`, `.jsonl` ou `.ndjson`
 
 ## Structure
 
 - `docker-compose.yml` : stack MongoDB + Mongo Express
 - `.env` : configuration centralisée
-- `scripts/import-csv.sh` : import CSV vers MongoDB
+- `scripts/import-csv.sh` : import dataset vers MongoDB
 
 ## Configuration
 
@@ -54,7 +54,7 @@ URI Compass équivalente (exemple) :
 mongodb://admin:admin123@localhost:27017/?authSource=admin
 ```
 
-## Import CSV
+## Import datasets
 
 Commande standard :
 
@@ -64,16 +64,24 @@ FILE=./data/users.csv COLLECTION=users DB=app_db ./scripts/import-csv.sh
 
 Paramètres :
 
-- `FILE` (obligatoire) : chemin du fichier CSV
-- `COLLECTION` (obligatoire) : nom de la collection cible
+- `FILE` (obligatoire) : chemin du fichier (`.csv`, `.json`, `.jsonl`, `.ndjson`)
+- `COLLECTION` (optionnel) : nom de la collection cible (si absent, dérivé du nom de fichier)
 - `DB` (optionnel) : nom de la base cible (sinon `MONGO_DEFAULT_DB`)
 - `DROP_FIRST` (optionnel) : `true` pour vider la collection avant import
 
-Exemple avec remplacement complet de la collection :
+Exemples :
 
 ```bash
 FILE=./data/users.csv COLLECTION=users DB=app_db DROP_FIRST=true ./scripts/import-csv.sh
+FILE=./data/orders.json DB=app_db ./scripts/import-csv.sh
+FILE=./data/events.jsonl COLLECTION=events_raw DB=app_db ./scripts/import-csv.sh
 ```
+
+Règles de format :
+
+- `csv` : première ligne = en-têtes de colonnes
+- `json` : tableau JSON (ex: `[{"a":1},{"a":2}]`)
+- `jsonl` / `ndjson` : un document JSON par ligne
 
 ## Exploration avec Jupyter
 
@@ -121,7 +129,7 @@ print(df_all.dtypes)
 Notes importantes :
 
 - Le dataset Telco contient la colonne `Churn Label` (pas `Churn`).
-- Après import CSV, certains champs peuvent rester en `object` (ex : `Total Charges`) et nécessiter une conversion numérique avant analyse.
+- Après import (surtout CSV), certains champs peuvent rester en `object` (ex : `Total Charges`) et nécessiter une conversion numérique avant analyse.
 
 ## Parcours notebooks modélisation
 
@@ -211,7 +219,7 @@ Bonne pratique :
 1. Démarrer la stack avec `docker compose up -d`
 2. Vérifier que `mongo` et `mongo-express` sont `running` via `docker compose ps`
 3. Ouvrir `http://localhost:8081`
-4. Lancer l'import CSV
+4. Lancer l'import du dataset
 5. Vérifier dans Mongo Express que la collection contient bien les documents
 6. Vérifier dans Compass le nombre de documents et quelques champs clés
 7. Vérifier dans Jupyter que `count_documents({})` et les dimensions DataFrame sont cohérentes
@@ -226,5 +234,5 @@ docker compose down
 ## Dépannage rapide
 
 - **Erreur de connexion MongoDB** : vérifier les identifiants `.env` et que `mongo` est `running`
-- **Import échoue** : vérifier que le CSV existe, possède une extension `.csv` et une ligne d'en-tête
+- **Import échoue** : vérifier que le fichier existe et que son format est parmi `.csv`, `.json`, `.jsonl`, `.ndjson`
 - **Port occupé** : changer `MONGO_PORT` ou `MONGO_EXPRESS_PORT` dans `.env`, puis relancer la stack

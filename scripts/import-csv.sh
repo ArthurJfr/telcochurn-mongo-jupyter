@@ -16,14 +16,9 @@ COLLECTION="${COLLECTION:-${2:-}}"
 DROP_FIRST="${DROP_FIRST:-false}"
 
 if [[ -z "${FILE}" ]]; then
-  echo "Erreur: fichier CSV manquant."
+  echo "Erreur: fichier manquant."
   echo "Usage: FILE=./data/users.csv COLLECTION=users DB=app_db ./scripts/import-csv.sh"
-  exit 1
-fi
-
-if [[ -z "${COLLECTION}" ]]; then
-  echo "Erreur: collection manquante."
-  echo "Ajoute COLLECTION=<nom> ou passe-la en 2e argument."
+  echo "Formats supportes: .csv, .json, .jsonl, .ndjson"
   exit 1
 fi
 
@@ -37,51 +32,76 @@ if [[ ! -f "${FILE}" ]]; then
   exit 1
 fi
 
-if [[ "${FILE##*.}" != "csv" ]]; then
-  echo "Erreur: le fichier doit avoir l'extension .csv"
-  exit 1
-fi
-
 if [[ "${DROP_FIRST}" != "true" && "${DROP_FIRST}" != "false" ]]; then
   echo "Erreur: DROP_FIRST doit valoir true ou false."
   exit 1
 fi
 
 ABS_FILE="$(cd "$(dirname "${FILE}")" && pwd)/$(basename "${FILE}")"
-CSV_DIR="$(dirname "${ABS_FILE}")"
-CSV_NAME="$(basename "${ABS_FILE}")"
+FILE_DIR="$(dirname "${ABS_FILE}")"
+FILE_NAME="$(basename "${ABS_FILE}")"
+EXT="${FILE_NAME##*.}"
+EXT_LOWER="$(printf '%s' "${EXT}" | tr '[:upper:]' '[:lower:]')"
+BASE_NAME="${FILE_NAME%.*}"
+
+if [[ -z "${COLLECTION}" ]]; then
+  COLLECTION="$(printf '%s' "${BASE_NAME}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//')"
+fi
+
+if [[ -z "${COLLECTION}" ]]; then
+  echo "Erreur: impossible de deduire un nom de collection a partir du fichier."
+  echo "Ajoute COLLECTION=<nom>."
+  exit 1
+fi
+
+MONGOIMPORT_ARGS=()
+case "${EXT_LOWER}" in
+  csv)
+    MONGOIMPORT_ARGS+=(--type=csv --headerline)
+    ;;
+  json)
+    MONGOIMPORT_ARGS+=(--type=json --jsonArray)
+    ;;
+  jsonl|ndjson)
+    MONGOIMPORT_ARGS+=(--type=json)
+    ;;
+  *)
+    echo "Erreur: extension non supportee: .${EXT_LOWER}"
+    echo "Formats supportes: .csv, .json, .jsonl, .ndjson"
+    exit 1
+    ;;
+esac
 
 URI="mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-admin123}@host.docker.internal:${MONGO_PORT:-27017}/?authSource=admin"
 
-echo "Import CSV vers MongoDB..."
+echo "Import fichier vers MongoDB..."
 echo "- FILE: ${ABS_FILE}"
+echo "- TYPE: ${EXT_LOWER}"
 echo "- DB: ${DB}"
 echo "- COLLECTION: ${COLLECTION}"
 echo "- DROP_FIRST: ${DROP_FIRST}"
 
 if [[ "${DROP_FIRST}" == "true" ]]; then
   docker run --rm \
-    -v "${CSV_DIR}:/work" \
+    -v "${FILE_DIR}:/work" \
     mongo:7 \
     mongoimport \
     --uri="${URI}" \
     --db="${DB}" \
     --collection="${COLLECTION}" \
-    --type=csv \
-    --headerline \
     --drop \
-    --file="/work/${CSV_NAME}"
+    "${MONGOIMPORT_ARGS[@]}" \
+    --file="/work/${FILE_NAME}"
 else
   docker run --rm \
-    -v "${CSV_DIR}:/work" \
+    -v "${FILE_DIR}:/work" \
     mongo:7 \
     mongoimport \
     --uri="${URI}" \
     --db="${DB}" \
     --collection="${COLLECTION}" \
-    --type=csv \
-    --headerline \
-    --file="/work/${CSV_NAME}"
+    "${MONGOIMPORT_ARGS[@]}" \
+    --file="/work/${FILE_NAME}"
 fi
 
 echo "Import termine."
